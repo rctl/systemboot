@@ -65,6 +65,8 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 			}
 			inMenuEntry = true
 			cfg = new(bootconfig.BootConfig)
+			name := strings.Join(sline[1:], " ")
+			cfg.Name = name
 		} else if inMenuEntry {
 			// otherwise look for kernel and initramfs configuration
 			if len(sline) < 2 {
@@ -85,6 +87,31 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 			} else if sline[0] == "initrd" || sline[0] == "initrd16" || sline[0] == "initrdefi" {
 				initrd := sline[1]
 				cfg.Initramfs = path.Join(basedir, initrd)
+			} else if sline[0] == "multiboot" {
+				multiboot := sline[1]
+				cmdline := strings.Join(sline[2:], " ")
+				if grubVersion == 2 {
+					// if grub2, unquote the string, as directives could be quoted
+					// https://www.gnu.org/software/grub/manual/grub/grub.html#Quoting
+					// TODO unquote everything, not just \$
+					cmdline = strings.Replace(cmdline, `\$`, "$", -1)
+				}
+				cfg.Multiboot = path.Join(basedir, multiboot)
+				cfg.MultibootArgs = cmdline
+			} else if sline[0] == "module" {
+				module := sline[1]
+				cmdline := strings.Join(sline[2:], " ")
+				if grubVersion == 2 {
+					// if grub2, unquote the string, as directives could be quoted
+					// https://www.gnu.org/software/grub/manual/grub/grub.html#Quoting
+					// TODO unquote everything, not just \$
+					cmdline = strings.Replace(cmdline, `\$`, "$", -1)
+				}
+				module = path.Join(basedir, module)
+				if cmdline != "" {
+					module = module + " " + cmdline
+				}
+				cfg.Modules = append(cfg.Modules, module)
 			}
 		}
 	}
