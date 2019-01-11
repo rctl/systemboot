@@ -19,7 +19,7 @@ const (
 )
 
 // TryMeasureBootConfig measures bootconfig contents
-func TryMeasureBootConfig(name, kernel, initramfs, kernelArgs, deviceTree string) {
+func TryMeasureBootConfig(name, kernel, initramfs, kernelArgs, deviceTree, multiboot, multibootArgs string, modules []string) {
 	TPMInterface, err := tpm.NewTPM()
 	if err != nil {
 		log.Printf("Cannot open TPM: %v", err)
@@ -30,7 +30,12 @@ func TryMeasureBootConfig(name, kernel, initramfs, kernelArgs, deviceTree string
 	TryMeasureData(BootConfig, []byte(initramfs), initramfs)
 	TryMeasureData(BootConfig, []byte(kernelArgs), kernelArgs)
 	TryMeasureData(BootConfig, []byte(deviceTree), deviceTree)
-	TryMeasureFiles(kernel, initramfs, deviceTree)
+	TryMeasureData(BootConfig, []byte(multiboot), multiboot)
+	TryMeasureData(BootConfig, []byte(multibootArgs), multibootArgs)
+	for i, module := range modules {
+		TryMeasureData(BootConfig, []byte(module), module+string(i))
+	}
+	TryMeasureFiles(kernel, initramfs, deviceTree, multiboot)
 	TPMInterface.Close()
 }
 

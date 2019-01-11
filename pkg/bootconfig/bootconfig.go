@@ -38,7 +38,7 @@ func (bc *BootConfig) IsValid() bool {
 // Boot tries to boot the kernel with optional initramfs and command line
 // options. If a device-tree is specified, that will be used too
 func (bc *BootConfig) Boot() error {
-	crypto.TryMeasureBootConfig(bc.Name, bc.Kernel, bc.Initramfs, bc.KernelArgs, bc.DeviceTree)
+	crypto.TryMeasureBootConfig(bc.Name, bc.Kernel, bc.Initramfs, bc.KernelArgs, bc.DeviceTree, bc.Multiboot, bc.MultibootArgs, bc.Modules)
 
 	// check if it is a usual boot entry
 	// otherwise use multiboot
