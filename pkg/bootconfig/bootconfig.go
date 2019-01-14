@@ -84,7 +84,12 @@ func (bc *BootConfig) Boot() error {
 			return err
 		}
 	} else if bc.Multiboot != "" {
-		// Trampoline should be a part of current binary.
+		// check multiboot header
+		if err := multiboot.Probe(bc.Multiboot); err != nil {
+			log.Printf("Error parsing multiboot header: %v", err)
+			return err
+		}
+		// export trampoline code from the current binary.
 		p, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("Cannot find current executable path: %v", err)
@@ -93,6 +98,7 @@ func (bc *BootConfig) Boot() error {
 		if err != nil {
 			return fmt.Errorf("Cannot eval symlinks for %v: %v", p, err)
 		}
+		// load multiboot kernel and modules
 		m := multiboot.New(bc.Multiboot, bc.MultibootArgs, trampoline, bc.Modules)
 		if err := m.Load(true); err != nil {
 			return fmt.Errorf("Load failed: %v", err)
