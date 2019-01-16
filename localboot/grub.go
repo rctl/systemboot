@@ -30,16 +30,23 @@ var (
 	}
 )
 
+type grubVersion int
+
+var (
+	grubV1 grubVersion = 1
+	grubV2 grubVersion = 2
+)
+
 // ParseGrubCfg parses the content of a grub.cfg and returns a list of
 // BootConfig structures, one for each menuentry, in the same order as they
 // appear in grub.cfg. All opened kernel and initrd files are relative to
 // basedir.
-func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.BootConfig {
+func ParseGrubCfg(ver grubVersion, grubcfg string, basedir string) []bootconfig.BootConfig {
 	// This parser sucks. It's not even a parser, it just looks for lines
 	// starting with menuentry, linux or initrd.
 	// TODO use a parser, e.g. https://github.com/alecthomas/participle
-	if grubVersion != 1 && grubVersion != 2 {
-		log.Printf("Warning: invalid GRUB version: %d", grubVersion)
+	if ver != grubV1 && ver != grubV2 {
+		log.Printf("Warning: invalid GRUB version: %d", ver)
 		return nil
 	}
 	bootconfigs := make([]bootconfig.BootConfig, 0)
@@ -76,12 +83,7 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 			if sline[0] == "linux" || sline[0] == "linux16" || sline[0] == "linuxefi" {
 				kernel := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
-				if grubVersion == 2 {
-					// if grub2, unquote the string, as directives could be quoted
-					// https://www.gnu.org/software/grub/manual/grub/grub.html#Quoting
-					// TODO unquote everything, not just \$
-					cmdline = strings.Replace(cmdline, `\$`, "$", -1)
-				}
+				cmdline = unquote(ver, cmdline)
 				cfg.Kernel = path.Join(basedir, kernel)
 				cfg.KernelArgs = cmdline
 			} else if sline[0] == "initrd" || sline[0] == "initrd16" || sline[0] == "initrdefi" {
@@ -90,18 +92,13 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 			} else if sline[0] == "multiboot" {
 				multiboot := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
-				if grubVersion == 2 {
-					// if grub2, unquote the string, as directives could be quoted
-					// https://www.gnu.org/software/grub/manual/grub/grub.html#Quoting
-					// TODO unquote everything, not just \$
-					cmdline = strings.Replace(cmdline, `\$`, "$", -1)
-				}
+				cmdline = unquote(ver, cmdline)
 				cfg.Multiboot = path.Join(basedir, multiboot)
 				cfg.MultibootArgs = cmdline
 			} else if sline[0] == "module" {
 				module := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
-				if grubVersion == 2 {
+				if ver == grubV2 {
 					// if grub2, unquote the string, as directives could be quoted
 					// https://www.gnu.org/software/grub/manual/grub/grub.html#Quoting
 					// TODO unquote everything, not just \$
@@ -122,6 +119,17 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 	return bootconfigs
 }
 
+func unquote(ver grubVersion, text string) string {
+	if ver == grubV2 {
+		// if grub2, unquote the string, as directives could be quoted
+		// https://www.gnu.org/software/grub/manual/grub/grub.html#Quoting
+		// TODO unquote everything, not just \$
+		return strings.Replace(text, `\$`, "$", -1)
+	}
+	// otherwise return the unmodified string
+	return text
+}
+
 // ScanGrubConfigs looks for grub2 and grub legacy config files in the known
 // locations and returns a list of boot configurations.
 func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
@@ -136,7 +144,7 @@ func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 			continue
 		}
 		crypto.TryMeasureData(crypto.ConfigData, grubcfg, path)
-		cfgs := ParseGrubCfg(string(grubcfg), basedir, 2)
+		cfgs := ParseGrubCfg(grubV2, string(grubcfg), basedir)
 		bootconfigs = append(bootconfigs, cfgs...)
 	}
 	// Scan Grub Legacy configurations
@@ -149,7 +157,7 @@ func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 			continue
 		}
 		crypto.TryMeasureData(crypto.ConfigData, grubcfg, path)
-		cfgs := ParseGrubCfg(string(grubcfg), basedir, 1)
+		cfgs := ParseGrubCfg(grubV1, string(grubcfg), basedir)
 		bootconfigs = append(bootconfigs, cfgs...)
 	}
 	return bootconfigs
