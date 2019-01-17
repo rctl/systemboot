@@ -91,7 +91,7 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 			} else if sline[0] == "initrd" || sline[0] == "initrd16" || sline[0] == "initrdefi" {
 				initrd := sline[1]
 				cfg.Initramfs = path.Join(basedir, initrd)
-			} else if sline[0] == "multiboot" {
+			} else if sline[0] == "multiboot" || sline[0] == "multiboot2" {
 				multiboot := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
 				if grubVersion == 2 {
@@ -102,7 +102,7 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 				}
 				cfg.Multiboot = path.Join(basedir, multiboot)
 				cfg.MultibootArgs = cmdline
-			} else if sline[0] == "module" {
+			} else if sline[0] == "module" || sline[0] == "module2" {
 				module := sline[1]
 				cmdline := strings.Join(sline[2:], " ")
 				if grubVersion == 2 {
