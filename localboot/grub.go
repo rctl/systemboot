@@ -3,32 +3,36 @@ package main
 import (
 	"io/ioutil"
 	"log"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/systemboot/systemboot/pkg/bootconfig"
 	"github.com/systemboot/systemboot/pkg/crypto"
 )
 
-// List of paths where to look for grub config files. Grub2Paths will look for
-// files with grub2-compatible syntax, GrubLegacyPaths similarly will treat
-// these as grub-legacy config files.
+// List of directories where to look for grub config files. The root dorectory
+// of each mountpoint, these folders inside the mountpoint and all subfolders
+// of these folders are searched
 var (
-	Grub2Paths = []string{
-		// grub2
-		"boot/grub2/grub.cfg",
-		"boot/grub2.cfg",
-		"grub2/grub.cfg",
-		"grub2.cfg",
-	}
-	GrubLegacyPaths = []string{
-		// grub legacy
-		"boot/grub/grub.cfg",
-		"boot/grub.cfg",
-		"grub/grub.cfg",
-		"grub.cfg",
+	GrubSearchDirectories = []string{
+		"boot",
+		"EFI",
+		"efi",
+		"grub",
+		"grub2",
 	}
 )
+
+func isGrubSearchDir(dirname string) bool {
+	for _, dir := range GrubSearchDirectories {
+		if dirname == dir {
+			return true
+		}
+	}
+	return false
+}
 
 // ParseGrubCfg parses the content of a grub.cfg and returns a list of
 // BootConfig structures, one for each menuentry, in the same order as they
@@ -126,31 +130,31 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 // locations and returns a list of boot configurations.
 func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 	bootconfigs := make([]bootconfig.BootConfig, 0)
-	// Scan Grub 2 configurations
-	for _, grubpath := range Grub2Paths {
-		path := path.Join(basedir, grubpath)
-		log.Printf("Trying to read %s", path)
-		grubcfg, err := ioutil.ReadFile(path)
-		if err != nil {
-			log.Printf("cannot open %s: %v", path, err)
-			continue
+	err := filepath.Walk(basedir, func(currentPath string, info os.FileInfo, err error) error {
+		if path.Dir(currentPath) == basedir && info.IsDir() && !isGrubSearchDir(path.Base(currentPath)) {
+			log.Printf("Skip %s", currentPath)
+			return filepath.SkipDir // skip irrelevant toplevel directories
 		}
-		crypto.TryMeasureData(crypto.ConfigData, grubcfg, path)
-		cfgs := ParseGrubCfg(string(grubcfg), basedir, 2)
-		bootconfigs = append(bootconfigs, cfgs...)
-	}
-	// Scan Grub Legacy configurations
-	for _, grubpath := range GrubLegacyPaths {
-		path := path.Join(basedir, grubpath)
-		log.Printf("Trying to read %s", path)
-		grubcfg, err := ioutil.ReadFile(path)
-		if err != nil {
-			log.Printf("cannot open %s: %v", path, err)
-			continue
+		if info.IsDir() {
+			log.Printf("Check %s", currentPath)
+			return nil // continue
 		}
-		crypto.TryMeasureData(crypto.ConfigData, grubcfg, path)
-		cfgs := ParseGrubCfg(string(grubcfg), basedir, 1)
-		bootconfigs = append(bootconfigs, cfgs...)
+		if info.Name() == "grub.cfg" {
+			// try parsing
+			log.Printf("Trying to read %s", currentPath)
+			grubcfg, errRead := ioutil.ReadFile(currentPath)
+			if errRead != nil {
+				log.Printf("cannot open %s: %v", currentPath, errRead)
+				return nil // continue anyway
+			}
+			crypto.TryMeasureData(crypto.ConfigData, grubcfg, currentPath)
+			cfgs := ParseGrubCfg(string(grubcfg), basedir, 1) // TODO get root dir for cfgs out of grub.cfg instead of taking the curren basedir
+			bootconfigs = append(bootconfigs, cfgs...)
+		}
+		return nil // continue
+	})
+	if err != nil {
+		log.Printf("filepath.Walk error: %v \n", err)
 	}
 	return bootconfigs
 }
