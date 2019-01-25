@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -21,8 +23,9 @@ var (
 
 // BlockDev maps a device name to a BlockStat structure for a given block device
 type BlockDev struct {
-	Name string
-	Stat BlockStat
+	Name   string
+	FsUUID string
+	Stat   BlockStat
 }
 
 // Summary prints a multiline summary of the BlockDev object
@@ -165,9 +168,26 @@ func GetBlockStats() ([]BlockDev, error) {
 		if err != nil {
 			return nil, err
 		}
-		blockdevs = append(blockdevs, BlockDev{Name: devname, Stat: *bstat})
+		devpath := path.Join("/dev/", devname)
+		uuid, err := getUUID(devpath)
+		blockdevs = append(blockdevs, BlockDev{Name: devname, FsUUID: uuid, Stat: *bstat})
 	}
 	return blockdevs, nil
+}
+
+func getUUID(devpath string) (fsuuid string, err error) {
+	output, err := exec.Command("blkid", devpath).Output()
+	if err != nil {
+		return fsuuid, err
+	} else {
+		fields := strings.Fields(string(output))
+		for _, field := range fields {
+			if strings.Contains(field, "UUID=") && !strings.Contains(field, "PARTUUID=") {
+				fsuuid = strings.Trim(field, `UUID"=`)
+			}
+		}
+		return fsuuid, nil
+	}
 }
 
 // GetGPTTable tries to read a GPT table from the block device described by the
