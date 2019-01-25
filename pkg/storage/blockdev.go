@@ -215,7 +215,7 @@ func FilterEFISystemPartitions(devices []BlockDev) ([]BlockDev, error) {
 }
 
 // PartitionsByGUID returns a list of BlockDev objects whose underlying
-// block device ahs the given GUID
+// block device has the given GUID
 func PartitionsByGUID(devices []BlockDev, guid string) ([]BlockDev, error) {
 	partitions := make([]BlockDev, 0)
 	for _, device := range devices {
@@ -231,6 +231,18 @@ func PartitionsByGUID(devices []BlockDev, guid string) ([]BlockDev, error) {
 			if part.Type.String() == guid {
 				partitions = append(partitions, device)
 			}
+		}
+	}
+	return partitions, nil
+}
+
+// PartitionsByFsUUID returns a list of BlockDev objects whose underlying
+// block device has a filesystem with the given UUID
+func PartitionsByFsUUID(devices []BlockDev, fsuuid string) ([]BlockDev, error) {
+	partitions := make([]BlockDev, 0)
+	for _, device := range devices {
+		if device.FsUUID == fsuuid {
+			partitions = append(partitions, device)
 		}
 	}
 	return partitions, nil
