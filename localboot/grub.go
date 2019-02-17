@@ -163,8 +163,8 @@ func ScanGrubConfigs(basedir string) []bootconfig.BootConfig {
 				log.Printf("cannot open %s: %v", currentPath, errRead)
 				return nil // continue anyway
 			}
-			crypto.TryMeasureData(crypto.ConfigData, grubcfg, currentPath)
-			cfgs := ParseGrubCfg(string(grubcfg), basedir, 1) // TODO get root dir for cfgs out of grub.cfg instead of taking the curren basedir
+			crypto.TryMeasureData(crypto.ConfigDataPCR, grubcfg, currentPath)
+			cfgs := ParseGrubCfg(ver, string(grubcfg), basedir) // TODO get root dir for cfgs out of grub.cfg instead of taking the curren basedir
 			bootconfigs = append(bootconfigs, cfgs...)
 		}
 		return nil // continue
