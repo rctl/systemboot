@@ -70,6 +70,7 @@ func ParseGrubCfg(grubcfg string, basedir string, grubVersion int) []bootconfig.
 			inMenuEntry = true
 			cfg = new(bootconfig.BootConfig)
 			name := strings.Join(sline[1:], " ")
+			name = strings.Split(name, "--")[0]
 			cfg.Name = name
 		} else if inMenuEntry {
 			// otherwise look for kernel and initramfs configuration
